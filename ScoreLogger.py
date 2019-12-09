@@ -30,8 +30,8 @@ SCORES_PNG_PATH = join(SCORES_DIR, "scores.png")
 SOLVED_CSV_PATH = join(SCORES_DIR, ".solved.csv")
 SOLVED_PNG_PATH = join(SCORES_DIR, "solved.png")
 AVERAGE_SCORE_TO_SOLVE = 0.1
-CONSECUTIVE_RUNS_TO_SOLVE = 200
-PLOT_REFRESH = 100
+PLOT_REFRESH = 500
+CONSECUTIVE_RUNS_TO_SOLVE = PLOT_REFRESH
 TRAIN_EACH_STEP = True
 
 # Stochastic training - ie train with batches of size 1, thus offering faster feedback loop of predicted Q-values

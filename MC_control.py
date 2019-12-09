@@ -70,7 +70,7 @@ class GreedyMCPlayer:
     def get_epsilon_greedy_action_policy(self, observation: State):
         def_vals = epsilon / nA
         A = np.ones(nA, dtype=float) * def_vals
-        best_action = self.Q[observation].best_action
+        best_action = self.P[observation].best_action
         A[best_action] += (1.0 - epsilon)
         
         return A
@@ -99,18 +99,18 @@ class GreedyMCPlayer:
         return episode
     
     def mc_control_epsilon_greedy(self):
-        self.Q: Dict[State, StateActions] = defaultdict(StateActions)
+        self.P: Dict[State, StateActions] = defaultdict(StateActions)
         
         for k in range(self._N):
             episode = self.generate_episode()
             
             for i, (state, action, reward) in enumerate(episode):
                 G = sum([_rew for _, _, _rew in episode[i:]])
-                v = self.Q[state].actions[action]
+                v = self.P[state].actions[action]
                 v.returns += G
                 v.state_cnt += 1
         
-        return self.Q
+        return self.P
 
 
 class Agent(ABC):
@@ -127,13 +127,13 @@ class RandomAgent(Agent):
         return np.random.randint(self._action_space)
 
 
-class QAgent(Agent):
+class PredictAgent(Agent):
     
-    def __init__(self, Q: Dict[State, StateActions]):
-        self._Q = Q
+    def __init__(self, policy: Dict[State, StateActions]):
+        self._P = policy
     
     def action(self, state: State) -> int:
-        return self._Q[state].best_action
+        return self._P[state].best_action
 
 
 def evaluate_agent(agent: Agent, rounds: int):
@@ -156,10 +156,10 @@ def evaluate_agent(agent: Agent, rounds: int):
 
 
 if __name__ == '__main__':
-    player = GreedyMCPlayer(500)
-    Q = player.mc_control_epsilon_greedy()
-    # random_agent = RandomAgent(nA)
-    # q_agent = QAgent(Q)
-    # n_rounds = 1000
-    # print(evaluate_agent(random_agent, n_rounds))
-    # print(evaluate_agent(q_agent, n_rounds))
+    player = GreedyMCPlayer(2000)
+    policy = player.mc_control_epsilon_greedy()
+    random_agent = RandomAgent(nA)
+    q_agent = PredictAgent(policy)
+    n_rounds = 1000
+    print(evaluate_agent(random_agent, n_rounds))
+    print(evaluate_agent(q_agent, n_rounds))
