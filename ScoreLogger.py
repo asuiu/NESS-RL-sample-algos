@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding:utf-8
 # Author: ASU --<andrei.suiu@gmail.com>
-# Purpose: 
+# Purpose:
 # Created: 12/9/2019
 from os.path import join
 from typing import List
@@ -30,7 +30,7 @@ SCORES_PNG_PATH = join(SCORES_DIR, "scores.png")
 SOLVED_CSV_PATH = join(SCORES_DIR, ".solved.csv")
 SOLVED_PNG_PATH = join(SCORES_DIR, "solved.png")
 AVERAGE_SCORE_TO_SOLVE = 0.1
-PLOT_REFRESH = 500
+PLOT_REFRESH = 10000
 CONSECUTIVE_RUNS_TO_SOLVE = PLOT_REFRESH
 TRAIN_EACH_STEP = True
 
@@ -41,7 +41,7 @@ STOCHASTIC_TRAIN = False
 
 
 class ScoreLogger:
-    
+
     def __init__(self, env_name, success_rounds=50):
         self.scores = deque(maxlen=CONSECUTIVE_RUNS_TO_SOLVE)
         self.averages = deque(maxlen=CONSECUTIVE_RUNS_TO_SOLVE)
@@ -51,7 +51,7 @@ class ScoreLogger:
         self.exp_rates = deque(maxlen=CONSECUTIVE_RUNS_TO_SOLVE)
         self.time_hist = deque(maxlen=CONSECUTIVE_RUNS_TO_SOLVE)
         self.t1 = time.time()
-        
+
         self.env_name = env_name
         if not os.path.exists(SCORES_DIR):
             os.makedirs(SCORES_DIR)
@@ -60,7 +60,7 @@ class ScoreLogger:
         if os.path.exists(SCORES_CSV_PATH):
             os.remove(SCORES_CSV_PATH)
         self.cached_scores = []
-    
+
     def show_graph(self, y: pd.DataFrame):
         self.fig = make_subplots(specs=[[{"secondary_y": True}]])
         self.fig.add_trace(go.Scatter(x=y.index, y=y.score, name="score"))
@@ -69,7 +69,7 @@ class ScoreLogger:
         # self.fig.add_trace(go.Scatter(x=y.index, y=y.expl, name="expl"))
         self.fig.add_trace(go.Scatter(x=y.index, y=y.time, name="time"), secondary_y=True)
         self.fig.show()
-    
+
     def add_score(self, score: int, run: int, refresh=False):
         self.cached_scores.append(score)
         self.scores.append(score)
@@ -81,7 +81,7 @@ class ScoreLogger:
         self.exp_rates.append(0)
         td = time.time() - self.t1
         self.time_hist.append(td)
-        
+
         if refresh:
             self._save_csv(SCORES_CSV_PATH, self.cached_scores)
             self.cached_scores = []
@@ -93,11 +93,11 @@ class ScoreLogger:
                            show_goal=True,
                            show_trend=True,
                            show_legend=True)
-            
+
             # Here we start a new thread as because of a bug in Plotly, sometimes the fig.show() doesn't return at all and process freezes
             y = pd.DataFrame(zip(self.scores, self.averages, self.last_20_avg, self.exp_rates, self.time_hist),
                              columns=['score', 'm', 'm20', 'expl', 'time'])
-            
+
             threading.Thread(target=self.show_graph, args=(y,)).start()
         print(
             f"Run {run:3}: (avg: {mean_score:2.3f}, last{self._N}_avg: {last_20mean:2.3f}, "
@@ -117,7 +117,7 @@ class ScoreLogger:
                            show_trend=False,
                            show_legend=False)
             exit()
-    
+
     def _save_png(self, input_path, output_path, x_label, y_label, average_of_n_last, show_goal, show_trend,
                   show_legend):
         x = []
@@ -132,34 +132,34 @@ class ScoreLogger:
                 x.append(int(j))
                 y.append(int(data[i][0]))
                 j += 1
-        
+
         plt.subplots()
         #plt.plot(x, y, label="score per run")
-        
+
         average_range = average_of_n_last if average_of_n_last is not None else len(x)
         plt.plot(x[-average_range:], [np.mean(y[-average_range:])] * len(y[-average_range:]), linestyle="--",
                  label="last " + str(average_range) + " runs average")
-        
+
         if show_goal:
             plt.plot(x, [AVERAGE_SCORE_TO_SOLVE] * len(x), linestyle=":",
                      label=str(AVERAGE_SCORE_TO_SOLVE) + " score average goal")
-        
+
         if show_trend and len(x) > 1:
             trend_x = x[1:]
             z = np.polyfit(np.array(trend_x), np.array(y[1:]), 1)
             p = np.poly1d(z)
             plt.plot(trend_x, p(trend_x), linestyle="-.", label="trend")
-        
+
         plt.title(self.env_name)
         plt.xlabel(x_label)
         plt.ylabel(y_label)
-        
+
         if show_legend:
             plt.legend(loc="upper left")
-        
+
         plt.savefig(output_path, bbox_inches="tight")
         plt.close()
-    
+
     def _save_csv(self, path, scores: List[float]):
         if not os.path.exists(path):
             with open(path, "w"):
@@ -169,6 +169,53 @@ class ScoreLogger:
             writer = csv.writer(scores_file)
             for score in scores:
                 writer.writerow([score])
+
+
+class ScoreLoggerFinalPlot:
+
+    def __init__(self, success_rounds=50):
+        self.scores = deque(maxlen=CONSECUTIVE_RUNS_TO_SOLVE)
+        self.averages = deque(maxlen=CONSECUTIVE_RUNS_TO_SOLVE)
+        self.last_20_avg = deque(maxlen=CONSECUTIVE_RUNS_TO_SOLVE)
+        self._N = success_rounds
+        self.last20_scores = deque(maxlen=self._N)
+        self.exp_rates = deque(maxlen=CONSECUTIVE_RUNS_TO_SOLVE)
+        self.time_hist = deque(maxlen=CONSECUTIVE_RUNS_TO_SOLVE)
+        self.t1 = time.time()
+
+        if not os.path.exists(SCORES_DIR):
+            os.makedirs(SCORES_DIR)
+        if os.path.exists(SCORES_PNG_PATH):
+            os.remove(SCORES_PNG_PATH)
+        if os.path.exists(SCORES_CSV_PATH):
+            os.remove(SCORES_CSV_PATH)
+        self.cached_scores = []
+
+    def show(self, title="Scores"):
+        # Here we start a new thread as because of a bug in Plotly, sometimes the fig.show() doesn't return at all and process freezes
+        y = pd.DataFrame(zip(self.scores, self.averages, self.last_20_avg, self.exp_rates, self.time_hist),
+                         columns=['score', 'm', 'm20', 'expl', 'time'])
+
+        threading.Thread(target=self._show_graph, args=(y, title)).start()
+
+    def _show_graph(self, y: pd.DataFrame, graph_title="Scores"):
+        self.fig = make_subplots(specs=[[{"secondary_y": True}]], subplot_titles=(graph_title,))
+        self.fig.add_trace(go.Scatter(x=y.index, y=y.score, name="score"))
+        self.fig.add_trace(go.Scatter(x=y.index, y=y.m, name="mean"))
+        self.fig.add_trace(go.Scatter(x=y.index, y=y.m20, name=f"mean_last{self._N}"))
+        self.fig.show()
+
+    def add_score(self, score: int, run: int):
+        self.cached_scores.append(score)
+        self.scores.append(score)
+        self.last20_scores.append(score)
+        last_20mean = mean(self.last20_scores)
+        self.last_20_avg.append(last_20mean)
+        mean_score = mean(self.scores)
+        self.averages.append(mean_score)
+        self.exp_rates.append(0)
+        td = time.time() - self.t1
+        self.time_hist.append(td)
 
 
 if __name__ == '__main__':
